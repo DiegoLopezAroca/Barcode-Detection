@@ -1,19 +1,20 @@
 import cv2
 import imutils
 import numpy as np
+from pyzbar import pyzbar
 
 # Cargar la imagen
 # img = cv2.imread('img/test/barcode_detector_test_025565.jpg', cv2.IMREAD_COLOR) #1º
 # img = cv2.imread('img/test/Barcodes_val_010985.jpg', cv2.IMREAD_COLOR) #-45º
 # img = cv2.imread('img/test/barcode_detector_train_025407.jpg', cv2.IMREAD_COLOR) #87º
 # img = cv2.imread('img/test/thisisnotgood_val_016289.jpg', cv2.IMREAD_COLOR) #-23º
-# img = cv2.imread('img/train/barcode_detector_test_025552.jpg', cv2.IMREAD_COLOR) #133º
-img = cv2.imread('detecting-barcodes-in-images/images/barcode_01.jpg', cv2.IMREAD_COLOR) #47º
-img = cv2.imread('detecting-barcodes-in-images/images/barcode_02.jpg', cv2.IMREAD_COLOR) #-23º
-img = cv2.imread('detecting-barcodes-in-images/images/barcode_03.jpg', cv2.IMREAD_COLOR) #-45º
-img = cv2.imread('detecting-barcodes-in-images/images/barcode_04.jpg', cv2.IMREAD_COLOR) #87º
-img = cv2.imread('detecting-barcodes-in-images/images/barcode_05.jpg', cv2.IMREAD_COLOR) #-133º
-img = cv2.imread('detecting-barcodes-in-images/images/barcode_06.jpg', cv2.IMREAD_COLOR) #1º
+img = cv2.imread('img/train/barcode_detector_test_025552.jpg', cv2.IMREAD_COLOR) #133º
+# img = cv2.imread('images/barcode_01.jpg', cv2.IMREAD_COLOR) #47º
+# img = cv2.imread('images/barcode_02.jpg', cv2.IMREAD_COLOR) #-23º
+# img = cv2.imread('images/barcode_03.jpg', cv2.IMREAD_COLOR) #-45º
+# img = cv2.imread('images/barcode_04.jpg', cv2.IMREAD_COLOR) #87º
+# img = cv2.imread('images/barcode_05.jpg', cv2.IMREAD_COLOR) #-133º
+# img = cv2.imread('images/barcode_06.jpg', cv2.IMREAD_COLOR) #1º
 print(img.shape[1])
 # Definir los factores de escala
 if 1600 > img.shape[1] > 1000:
@@ -121,11 +122,48 @@ c = sorted(cnts, key = cv2.contourArea, reverse = True)[0]
 
 # Hacer un bounding box alrededor del contorno más grande
 rect = cv2.minAreaRect(c)
+print(rect)
 box = cv2.cv.BoxPoints(rect) if imutils.is_cv2() else cv2.boxPoints(rect)
 box = box.astype(int)
+print(box)
+
+'''Codigo interesatne para mostrar como funciona boxpoints
+for i in box:
+    cv2.circle(image,(i[0],i[1]), 3, (0,255,0), -1)
+    imgplot = plt.imshow(image)
+    plt.show()
+'''
+
+#Vamos a guardar la rotacion, altura y anchura para poner la imagen derecha
+angulo = rect[2]
+alto, ancho = resized_image.shape[0:2]
+if angulo < -45:
+    angulo = -(90 + angulo)
+else:
+    angulo = angulo - 90
+matriz_rotacion = cv2.getRotationMatrix2D(rect[0], angulo, 1.0)
+imagen_rotada = cv2.warpAffine(resized_image, matriz_rotacion, (ancho, alto))
+
+pts_rotados = cv2.transform(np.array([box]), matriz_rotacion)[0]
 
 # debug = imagen_rotada.copy()
-cv2.drawContours(resized_image, [box], -1, (0, 255, 0), 3)
-cv2.imshow("Contorno seleccionado", resized_image)
+cv2.drawContours(imagen_rotada, [pts_rotados], -1, (0, 255, 0), 3)
+cv2.imshow("Contorno seleccionado", imagen_rotada)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
+# Bounding box tras rotar
+xs = pts_rotados[:, 0]
+ys = pts_rotados[:, 1]
+
+# Cogemos las coordenadas minimas y maximas ya que sino la imagen recortada sale mal
+x_min, x_max = xs.min(), xs.max()
+y_min, y_max = ys.min(), ys.max()
+
+# Recortamos la imagen
+imagen_recortada = imagen_rotada[y_min:y_max, x_min:x_max]
+
+cv2.imshow("Imagen recortada", imagen_recortada)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
